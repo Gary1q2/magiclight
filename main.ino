@@ -4,16 +4,16 @@
 
 #define PIXEL_COUNT 24
 #define PIXEL_PIN D2
-#define PIXEL_TYPE WS2812B	
+#define PIXEL_TYPE WS2812B  
 
 #define BUTTON D5
 #define POT A1
 #define HOLD_TIME 3
-#define NUM_COLORS 9
+#define NUM_COLORS 10
 #define LIMBO 69
 #define TIMER 7200
 
-Adafruit_NeoPixel ring(PIXEL_COUNT, PIXEL_PIN, PIXEL_TYPE);	// Create ring object
+Adafruit_NeoPixel ring(PIXEL_COUNT, PIXEL_PIN, PIXEL_TYPE); // Create ring object
 
 
 bool lightOn = false;   // Light status
@@ -21,7 +21,7 @@ int startPress = 0;     // Count down time to close lights
 int cantPress = false;  // Prevents triggering button hold multiple times
 int currColor = -1;     // Current color of LEDs
 int brightness = 20;    // Current brightness of LEDs
-int lastOn = 0;         // Keep track when light was last turned on
+int lastOn = 0;         // Keep track when light was last turned on or pressed
 int red = 0;              
 int green = 0;          // Rememeber the RGB values
 int blue = 0;
@@ -40,20 +40,22 @@ int colorArray[NUM_COLORS][3] = {{255,   0,   0},  // Red
                                  {  0, 255, 255},  // Light blue
                                  {  0,   0, 255},  // Blue
                                  {140,   0, 255},  // Purple  hmm
-                                 {255,   0, 191}}; // Pink hmm
+                                 {255,   0, 191},  // Pink hmmm
+                                 {255, 255, 255}}; // White
                         
 
 
 
 
 void handler(const String& event, const String& data);
-void setLEDColor(const int& color);
+void setLEDColor(const int& color, const int& delayTime);
 void publishEvent(const String& event, const String& message);
 void turnOff(const int& delayTime);
 int approachValue(const int& value, const int& target);
 void spiralLight(const int& color, const int& delayTime);
 void rainbowOff(const int& delayTime);
-
+void raving();
+void updatePotBrightness(); 
 
 void setup() {
     Serial.begin(9600);
@@ -74,13 +76,9 @@ void setup() {
 
 void loop() {
     
-    potValue = analogRead(POT);
-    int multiple = 5;
-    int tempBright = ((map(potValue, 0, 4095, 10, 100) + multiple/2) / multiple) * multiple; 
-
-    if (tempBright != brightness) {
-        ring.setBrightness(tempBright);
-        brightness = tempBright;
+    // Update global brightness based on pot
+    if (cantPress != LIMBO) {
+        updatePotBrightness();
     }
 
     // Auto turn off light if time is up
@@ -124,6 +122,10 @@ void loop() {
                 publishEvent("turn_on", message);
             }
             
+            if (cantPress == LIMBO) {
+                turnOff(10);
+            }
+            
             cantPress = false;
             startPress = 0;    
         }
@@ -151,12 +153,13 @@ void loop() {
                 publishEvent("turn_off", message);
 
                 cantPress = LIMBO;
+                delay(20);
             }
             
         // Button must have been clacked...
         } else if (cantPress == LIMBO) {
-            setLEDColor(0);
-            turnOff(10);
+            Serial.printlnf("Raving");
+            raving();
         }
     }
     
@@ -209,20 +212,83 @@ void handler(const String& event, const String& data) {
     }
 }
 
+// Set the lights to flash through the rainbow (cowboy style, doesn't set global variables)
+void raving() {
+    int delayTime;
+    
+    // Set brightness to 1 (1 because otherwise light closes)
+    brightness = 1;
+    ring.setBrightness(brightness);
+    ring.show();
+    
+    for (int i = 0; i < NUM_COLORS; i++) {
+        
+        // Set the delayTime based on pot
+        potValue = analogRead(POT);
+        int multiple = 5;
+        delayTime = ((map(potValue, 0, 4095, 10, 100) + multiple/2) / multiple) * multiple / 10;
+ 
+        if (i == 1 || i == 3 || i == 8) {
+            continue;
+        }
+ 
+        Serial.printlnf("Color = %d", i);
+        // Set ring to a certain colour
+        Serial.printlnf("Colors [%d, %d, %d]", colorArray[i][0], colorArray[i][1], colorArray[i][2]);
+        for (int j = 0; j < PIXEL_COUNT; j++) {
+            ring.setPixelColor(j, colorArray[i][0], colorArray[i][1], colorArray[i][2]);
+        }
+        ring.show();
+
+        // Delay before flashing in
+        delay(delayTime*10);
+
+        // Flashing in
+        while (brightness < 100) {
+            brightness++;
+            ring.setBrightness(brightness);
+            ring.show();
+            delay(delayTime/12);
+        }
+        
+        // Delay before flashing out
+        delay(delayTime*6);
+        
+        // Flashing out
+        while (brightness > 1) {
+            brightness--;
+            ring.setBrightness(brightness);
+            ring.show();
+            delay(delayTime/8);
+        }
+    }
+}
+
+// Check's the pot and updates the global brightness
+void updatePotBrightness() {
+    potValue = analogRead(POT);
+    int multiple = 5;
+    int tempBright = ((map(potValue, 0, 4095, 10, 100) + multiple/2) / multiple) * multiple; 
+    if (tempBright != brightness) {
+        ring.setBrightness(tempBright);
+        brightness = tempBright;
+        Serial.printlnf("Brightness set to %d", brightness);
+    }
+}
+
 
 // Sets the ring to a specific color
 // 0 - 8 = a nice colour
-void setLEDColor(const int& color) {
+void setLEDColor(const int& color, const int& delayTime) {
     Serial.printlnf("SetLEDColor called with color = %d", color);
 
-    int delayTime = 5;  // How long to delay each increment time
     int r = colorArray[color][0];
     int g = colorArray[color][1];
     int b = colorArray[color][2];
     
     
-    Serial.printlnf("Fading goals = [%d, %d, %d]", r, g, b);
-    Serial.printlnf("before fade.... red = %d  green = %d   blue = %d", red, green, blue);
+    //Serial.printlnf("Fading goals = [%d, %d, %d]", r, g, b);
+    //Serial.printlnf("before fade.... red = %d  green = %d   blue = %d", red, green, blue);
     while (red != r || green != g || blue != b) {
         red = approachValue(red, r);
         green = approachValue(green, g);
@@ -234,14 +300,14 @@ void setLEDColor(const int& color) {
         ring.show();
         delay(delayTime);
         
-        Serial.printlnf("iterating... red = %d  green = %d   blue = %d", red, green, blue);
+        //Serial.printlnf("iterating... red = %d  green = %d   blue = %d", red, green, blue);
     }
-    Serial.printlnf("AFTER fade.... red = %d  green = %d   blue = %d", red, green, blue);
+    //Serial.printlnf("AFTER fade.... red = %d  green = %d   blue = %d", red, green, blue);
     
     
     lightOn = true;
     lastOn = Time.second();
-    Serial.printlnf("LastOn set to = %d", lastOn);
+    //Serial.printlnf("LastOn set to = %d", lastOn);
     currColor = color;
 }
 
@@ -279,6 +345,7 @@ void spiralLight(const int& color, const int& delayTime) {
         ring.show();
         delay(delayTime);
     }
+    Serial.printlnf("set pixel colors to %d %d %d", r, g, b);
     
     // Set global variables
     red = r;
@@ -291,14 +358,14 @@ void spiralLight(const int& color, const int& delayTime) {
     currColor = color;
 }
 
-
+// Give a nice rainbow before turning off
 void rainbowOff(const int& delayTime) {
     Serial.printlnf("Rainbowing off");
     
     for (int i = 0; i < NUM_COLORS; i++) {
         spiralLight(i, delayTime);
     }
-    turnOff(10);
+    turnOff(2);
 }
 
 
@@ -306,21 +373,13 @@ void rainbowOff(const int& delayTime) {
 // Turn off LED's via fading
 void turnOff(const int& delayTime) {
     Serial.printlnf("Turning off");
-    
-    while (red != 0 || green != 0 || blue != 0) {
-        red -= 10;
-        green -= 10;
-        blue -= 10;
-        if (red < 0) { red = 0; }
-        if (green < 0) { green = 0; }
-        if (blue < 0) { blue = 0; }
-        
-        for (int i = 0; i < PIXEL_COUNT; i++) {
-            ring.setPixelColor(i, red, green, blue);
-        }
+
+    while (brightness > 0) {
+        brightness--;
+        ring.setBrightness(brightness);
         ring.show();
         delay(delayTime);
-    }     
+    }
     
     red = 0;
     green = 0;
