@@ -10,4 +10,4 @@ How to use magic lights:
 Rave update:
 1. Clack the light button hard, after 3 seconds it will rainbow out and then start flashing rainbow lights at a set tempo
 2. Use the potentiometer to adjust the speed of the flashing to match your desired song bpm
-3. To turn off, clack the lgiht button hard again and the light will turn off
+3. To turn off, clack the light button hard again and the light will turn off
