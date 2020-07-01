@@ -1,5 +1,6 @@
 # magiclight
-Code for wifi magic lights
+Long Distance Friendship Lamps developed in C++:
+Two lights that are connected together around the world no matter where they are, as long as they are connected to the internet!
 
 How to use magic lights:
 1. Gently press light button to activate a random colour, this will cause the other light to also light up with the same colour
