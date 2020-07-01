@@ -1,5 +1,5 @@
 # magiclight
-Long Distance Friendship Lamps developed in C++:
+Long Distance Friendship Lamps developed in C++
 Two lights that are connected together around the world no matter where they are, as long as they are connected to the internet!
 
 How to use magic lights:
